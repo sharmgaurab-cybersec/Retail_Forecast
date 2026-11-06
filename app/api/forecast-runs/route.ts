@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { SESSION_COOKIE, authConfig, authRequest } from '../../../lib/email-auth';
+import { ADMIN_EMAIL, SESSION_COOKIE, authConfig, authRequest } from '../../../lib/email-auth';
 
 const isText = (v: unknown, max: number): v is string => typeof v === 'string' && v.trim().length > 0 && v.length <= max;
 
@@ -15,6 +15,8 @@ export async function POST(request: Request) {
   let identity: Response;
   try { identity = await authRequest('/user', undefined, token); } catch { return Response.json({ error: 'Could not verify the Supabase session.' }, { status: 401 }); }
   if (!identity.ok) return Response.json({ error: 'Please sign in again to save forecasts.' }, { status: 401 });
+  const signedInUser = await identity.json() as { email?: string };
+  if (signedInUser.email?.toLowerCase() !== ADMIN_EMAIL) return Response.json({ error: 'Admin access is required to save forecasts.' }, { status: 403 });
   let body: any;
   try { body = JSON.parse(raw); } catch { return Response.json({ error: 'Invalid JSON.' }, { status: 400 }); }
   if (!isText(body.suburb, 80) || !isText(body.drink_type, 60) || !isText(body.product, 120) || !Number.isInteger(body.horizon_days) || body.horizon_days < 1 || body.horizon_days > 30 || !Number.isInteger(body.order_recommendation) || body.order_recommendation < 0 || !Array.isArray(body.daily) || body.daily.length !== body.horizon_days || body.daily.some((d: any) => !isText(d.date, 10) || !Number.isInteger(d.sales) || d.sales < 0 || (d.visitors !== null && d.visitors !== undefined && (!Number.isInteger(d.visitors) || d.visitors < 0)))) return Response.json({ error: 'Forecast fields were not valid.' }, { status: 400 });

@@ -12,7 +12,8 @@ This is an independent project and is not affiliated with Coles. Coles does not 
 - Live weather from Open-Meteo and Australian public holidays from Nager.Date.
 - Order recommendation subtracts on-hand and incoming drinks and adds optional safety stock.
 - Downloadable CSV template and forecast export.
-- Optional Supabase email sign-in and private forecast history stored in Supabase Postgres with row-level security.
+- Admin-only Supabase email verification before the forecast opens; the approved admin can export forecasts as PDF or CSV.
+- Forecast history stored in Supabase Postgres with row-level security.
 - Cloudflare Worker deployment with D1 used for authentication rate limits.
 
 ## CSV format
@@ -39,9 +40,9 @@ The project is prepared to connect to Supabase, but a Supabase project must be p
 1. Create a Supabase project and enable email OTP sign-in. For public email delivery, configure a custom SMTP provider. Follow `EMAIL-OTP-SETUP.md` for OTP template and email settings.
 2. In the Supabase SQL editor, run `supabase/migrations/20261106_create_forecast_runs.sql`. This creates the forecast history table and per-user RLS policies.
 3. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` as Cloudflare Worker environment variables. Use the publishable/anon key only; never put a service-role or secret key in the app.
-4. Deploy the Worker and test sign-in, then generate a forecast while signed in. The user can only insert and read their own forecast records.
+4. Deploy the Worker. Only `reborngamming1@gmail.com` can request or verify a sign-in code. Admin sign-in is required before the forecast page loads. Once signed in, use **Download forecast PDF** to open the browser print dialog and choose **Save as PDF**, or export CSV.
 
-The app sends the verified user's access token to Supabase PostgREST. The database applies RLS; the application does not store the uploaded CSV itself, only the forecast summary and daily estimates. Apply any database changes to a separate project intended for this application.
+The app sends the verified admin's access token to Supabase PostgREST. The database applies RLS; the application does not store the uploaded CSV itself, only the forecast summary and daily estimates. Apply any database changes to a separate project intended for this application. The admin email is an application allowlist in `cloudflare/worker.mjs` and `lib/email-auth.ts`.
 
 ### Cloudflare configuration
 

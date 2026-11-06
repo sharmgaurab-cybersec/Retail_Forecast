@@ -1,6 +1,7 @@
-import { authBody,authConfig,authReply,authRequest,allowAuth,verifySession,SESSION_COOKIE } from '../../../../lib/email-auth';
+import { ADMIN_EMAIL,authBody,authConfig,authReply,authRequest,allowAuth,verifySession,SESSION_COOKIE } from '../../../../lib/email-auth';
 export async function POST(request:Request){
  const b=await authBody(request);if('error' in b)return authReply({error:b.error},b.status);
+ if(b.email!==ADMIN_EMAIL)return authReply({error:'This sign-in is restricted to the approved admin account.'},403);
  if(typeof b.token!=='string'||!/^\d{6}$/.test(b.token))return authReply({error:'Enter the six-digit code.'},400);
  if(!authConfig())return authReply({error:'Email sign-in is awaiting setup.'},503);
  try{

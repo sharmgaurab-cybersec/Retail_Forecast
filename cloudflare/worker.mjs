@@ -1,5 +1,6 @@
 // Lightweight API only: no React, Next, catalogue parsing or server-side rendering.
 const COOKIE = '__Host-coles-forecast-session';
+const ADMIN_EMAIL = 'reborngamming1@gmail.com';
 const json = (data, status = 200, extra = {}) => Response.json(data, { status, headers: {
   'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...extra,
 } });
@@ -30,7 +31,7 @@ async function auth(env, path, { body, token } = {}) {
 }
 function identity(data) {
   return data && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.id) &&
-    typeof data.email === 'string' && data.email_confirmed_at ? { id: 'email:' + data.id, email: data.email } : null;
+    typeof data.email === 'string' && data.email_confirmed_at ? { id: 'email:' + data.id, email: data.email.toLowerCase() } : null;
 }
 async function user(request, env) {
   const token = cookieToken(request);
@@ -38,7 +39,8 @@ async function user(request, env) {
   const r = await auth(env, '/user', { token });
   if (r.status === 401 || r.status === 403) return null;
   if (!r.ok) fail('Could not verify your session. Try again later.', 503);
-  return identity(await r.json());
+  const verified = identity(await r.json());
+  return verified?.email === ADMIN_EMAIL ? verified : null;
 }
 function database(env) {
   if (!env.DB) fail('Database binding DB is missing. Configure a D1 database for authentication rate limits.', 503);
@@ -88,6 +90,7 @@ async function api(request, env) {
   }
   if (path === '/api/auth/request-code' && method === 'POST') {
     const email = emailAddress(await body(request));
+    if (email !== ADMIN_EMAIL) fail('This sign-in is restricted to the approved admin account.', 403);
     if (!config(env)) fail('Email sign-in is awaiting setup.', 503);
     await limit(env, 'send:' + email, 3, 15);
     await limit(env, 'ip-send:' + (request.headers.get('CF-Connecting-IP') || 'unknown'), 10, 15);
@@ -100,6 +103,7 @@ async function api(request, env) {
   }
   if (path === '/api/auth/verify-code' && method === 'POST') {
     const data = await body(request), email = emailAddress(data);
+    if (email !== ADMIN_EMAIL) fail('This sign-in is restricted to the approved admin account.', 403);
     if (typeof data.token !== 'string' || !/^\d{6}$/.test(data.token)) fail('Enter the six-digit code.');
     await limit(env, 'verify:' + email, 5, 10);
     await limit(env, 'ip-verify:' + (request.headers.get('CF-Connecting-IP') || 'unknown'), 20, 10);
@@ -128,7 +132,8 @@ async function api(request, env) {
     const token = cookieToken(request);
     if (!token || !config(env)) fail('Sign in with your Supabase email to save forecasts.', 401);
     const check = await auth(env, '/user', { token });
-    if (!check.ok || !identity(await check.json())) fail('Please sign in again to save forecasts.', 401);
+    const verified = check.ok ? identity(await check.json()) : null;
+    if (!verified || verified.email !== ADMIN_EMAIL) fail('Please sign in again with the approved admin account.', 401);
     if (typeof data.suburb !== 'string' || data.suburb.length > 80 || typeof data.drink_type !== 'string' || data.drink_type.length > 60 || typeof data.product !== 'string' || data.product.length > 120 || !Number.isInteger(data.horizon_days) || data.horizon_days < 1 || data.horizon_days > 30 || !Number.isInteger(data.order_recommendation) || data.order_recommendation < 0 || !Array.isArray(data.daily) || data.daily.length !== data.horizon_days || data.daily.some(d => !d || typeof d.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d.date) || !Number.isInteger(d.sales) || d.sales < 0 || (d.visitors != null && (!Number.isInteger(d.visitors) || d.visitors < 0)))) fail('Forecast fields were not valid.');
     const payload = {
       suburb: data.suburb, drink_type: data.drink_type, product: data.product,

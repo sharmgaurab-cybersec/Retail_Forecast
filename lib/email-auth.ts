@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { cookies } from 'next/headers';
-import { getChatGPTUser } from '../app/chatgpt-auth';
 export const SESSION_COOKIE='__Host-coles-forecast-session';
+export const ADMIN_EMAIL='reborngamming1@gmail.com';
 export function authConfig(){
  try {const u=new URL(env.SUPABASE_URL||'');const key=env.SUPABASE_PUBLISHABLE_KEY;
  if(u.protocol!=='https:'||!/^([a-z0-9-]+)\.supabase\.co$/.test(u.hostname)||u.port||u.username||u.password||u.search||u.hash||u.pathname!=='/'||!key)return null;
@@ -20,8 +20,8 @@ export async function verifySession(token:string){
  try{const r=await authRequest('/user',undefined,token);return r.ok?verifiedIdentity(await r.json()):null;}catch{return null;}
 }
 export async function getUser(){const token=(await cookies()).get(SESSION_COOKIE)?.value;
- if(token){const u=await verifySession(token);if(u)return u;}
- return getChatGPTUser();
+ if(token){const u=await verifySession(token);if(u?.email.toLowerCase()===ADMIN_EMAIL)return u;}
+ return null;
 }
 export const authReply=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export async function authBody(request:Request){

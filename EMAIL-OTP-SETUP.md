@@ -1,6 +1,6 @@
 # Supabase email sign-in and forecast storage
 
-The app uses Supabase Auth email one-time codes. A signed-in user can save forecast summaries to the `forecast_runs` table. The original uploaded CSV stays in the browser and is not sent to Supabase.
+The app uses Supabase Auth email one-time codes. Only `reborngamming1@gmail.com` is allowed to sign in. Admin verification is required before the forecast opens; the admin can save forecast summaries to the `forecast_runs` table and export a report as PDF. The original uploaded CSV stays in the browser and is not sent to Supabase.
 
 ## Configure Supabase
 
@@ -21,7 +21,7 @@ The Worker uses D1 for rate-limiting email code requests. It uses Supabase Postg
 
 ## Verify setup
 
-After deploying, request a code using an email address, verify it, create a forecast and confirm that the save status appears. In Supabase Table Editor, confirm that one row was added to `forecast_runs`. Sign in as a second user and verify that the first user's row is not visible under that second account. Test invalid and expired codes before public use.
+After deploying, request a code for the approved admin address, verify it, create a forecast and confirm that the save status appears. In Supabase Table Editor, confirm that one row was added to `forecast_runs`. Requests from any other email are rejected by the Worker. Test invalid and expired codes before use.
 
 ## Privacy
 
