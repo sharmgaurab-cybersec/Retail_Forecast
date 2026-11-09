@@ -88,34 +88,24 @@ async function api(request, env) {
     const u = await user(request, env);
     return json({ enabled: !!config(env), signedIn: !!u, ...(u ? { email: u.email } : {}) });
   }
-  if (path === '/api/auth/request-code' && method === 'POST') {
-    const email = emailAddress(await body(request));
+  if (path === '/api/auth/sign-in' && method === 'POST') {
+    const data = await body(request, 2048);
+    const email = emailAddress(data);
     if (email !== ADMIN_EMAIL) fail('This sign-in is restricted to the approved admin account.', 403);
     if (!config(env)) fail('Email sign-in is awaiting setup.', 503);
-    await limit(env, 'send:' + email, 3, 15);
-    await limit(env, 'ip-send:' + (request.headers.get('CF-Connecting-IP') || 'unknown'), 10, 15);
-    const r = await auth(env, '/otp', { body: { email, create_user: true } });
-    if (!r.ok) {
-      console.error('otp_provider_status', r.status);
-      fail(r.status === 429 ? 'Please wait before requesting another code.' : 'Could not send the code. Ask the owner to check Supabase email delivery settings.', r.status === 429 ? 429 : 502);
-    }
-    return json({ ok: true });
-  }
-  if (path === '/api/auth/verify-code' && method === 'POST') {
-    const data = await body(request), email = emailAddress(data);
-    if (email !== ADMIN_EMAIL) fail('This sign-in is restricted to the approved admin account.', 403);
-    if (typeof data.token !== 'string' || !/^\d{6}$/.test(data.token)) fail('Enter the six-digit code.');
-    await limit(env, 'verify:' + email, 5, 10);
-    await limit(env, 'ip-verify:' + (request.headers.get('CF-Connecting-IP') || 'unknown'), 20, 10);
-    const r = await auth(env, '/verify', { body: { email, token: data.token, type: 'email' } });
-    if (!r.ok) fail('Code is invalid or expired. Request a new code.', 401);
+    if (typeof data.password !== 'string' || data.password.length < 1 || data.password.length > 256) fail('Enter your admin password.');
+    await limit(env, 'password:' + email, 5, 10);
+    await limit(env, 'ip-password:' + (request.headers.get('CF-Connecting-IP') || 'unknown'), 20, 10);
+    const r = await auth(env, '/token?grant_type=password', { body: { email, password: data.password } });
+    if (r.status === 429) fail('Too many sign-in attempts. Wait a few minutes and try again.', 429);
+    if (!r.ok) fail('The admin email or password is incorrect.', 401);
     const session = await r.json();
     const token = session.access_token;
     if (typeof token !== 'string' || token.length > 8192 || !/^[A-Za-z0-9._-]+$/.test(token)) fail('Verification failed.', 502);
     // Verify identity with Supabase, rather than trusting client input or unverified JWT claims.
     const check = await auth(env, '/user', { token });
     const u = check.ok ? identity(await check.json()) : null;
-    if (!u || u.email.toLowerCase() !== email) fail('Verification failed.', 502);
+    if (!u || u.email.toLowerCase() !== email) fail('Could not verify the admin account. Check that its email is confirmed in Supabase.', 401);
     const age = Math.max(1, Math.min(3600, Number(session.expires_in) || 3600));
     return json({ ok: true }, 200, { 'Set-Cookie': `${COOKIE}=${token}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${age}` });
   }
@@ -130,7 +120,7 @@ async function api(request, env) {
   if (path === '/api/forecast-runs' && method === 'POST') {
     const data = await body(request, 48000);
     const token = cookieToken(request);
-    if (!token || !config(env)) fail('Sign in with your Supabase email to save forecasts.', 401);
+    if (!token || !config(env)) fail('Sign in with the approved admin account to save forecasts.', 401);
     const check = await auth(env, '/user', { token });
     const verified = check.ok ? identity(await check.json()) : null;
     if (!verified || verified.email !== ADMIN_EMAIL) fail('Please sign in again with the approved admin account.', 401);

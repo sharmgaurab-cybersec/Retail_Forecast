@@ -4,10 +4,10 @@ export const SESSION_COOKIE='__Host-coles-forecast-session';
 export const ADMIN_EMAIL='reborngamming1@gmail.com';
 export function authConfig(){
  try {const u=new URL(env.SUPABASE_URL||'');const key=env.SUPABASE_PUBLISHABLE_KEY;
- if(u.protocol!=='https:'||!/^([a-z0-9-]+)\.supabase\.co$/.test(u.hostname)||u.port||u.username||u.password||u.search||u.hash||u.pathname!=='/'||!key)return null;
- return {url:u.origin,key};}catch{return null;}
+ if(u.protocol!=='https:'||!/^([a-z0-9-]+)\.supabase\.co$/.test(u.hostname)||u.port||u.username||u.password||u.search||u.hash||u.pathname!=='/'||typeof key!=='string'||!key.trim()||key.startsWith('sb_secret_'))return null;
+ return {url:u.origin,key:key.trim()};}catch{return null;}
 }
-export async function authRequest(path:'/otp'|'/verify'|'/user'|'/logout',body?:unknown,token?:string){
+export async function authRequest(path:'/token?grant_type=password'|'/user'|'/logout',body?:unknown,token?:string){
  const c=authConfig();if(!c)throw Error('Email sign-in is awaiting setup.');
  return fetch(c.url+'/auth/v1'+path,{method:body===undefined?'GET':'POST',headers:{apikey:c.key,'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)}),redirect:'error',signal:AbortSignal.timeout(10000),cache:'no-store'});
 }
@@ -29,7 +29,7 @@ export async function authBody(request:Request){
  if(!request.headers.get('Content-Type')?.startsWith('application/json'))return {error:'JSON required.',status:415} as const;
  if(Number(request.headers.get('Content-Length')||0)>1024)return {error:'Request too large.',status:413} as const;
  const text=await request.text();if(text.length>1024)return {error:'Request too large.',status:413} as const;
- try{const b=JSON.parse(text);if(!b||typeof b.email!=='string'||b.email.length>254||!/^\S+@[^@\s]+\.[^@\s]+$/.test(b.email))throw Error();return {email:b.email.trim().toLowerCase(),token:b.token};}catch{return {error:'Enter a valid email address.',status:400} as const;}
+ try{const b=JSON.parse(text);if(!b||typeof b.email!=='string'||b.email.length>254||!/^\S+@[^@\s]+\.[^@\s]+$/.test(b.email))throw Error();if(typeof b.password!=='string'||b.password.length<1||b.password.length>256)throw Error();return {email:b.email.trim().toLowerCase(),password:b.password};}catch{return {error:'Enter a valid admin email and password.',status:400} as const;}
 }
 export async function allowAuth(key:string,limit:number,windowMs:number){
  if(!env.DB)return false;

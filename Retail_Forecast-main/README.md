@@ -12,7 +12,7 @@ This is an independent project and is not affiliated with Coles. Coles does not 
 - Live weather from Open-Meteo and Australian public holidays from Nager.Date.
 - Order recommendation subtracts on-hand and incoming drinks and adds optional safety stock.
 - Downloadable CSV template and forecast export.
-- Admin-only Supabase email verification before the forecast opens; the approved admin can export forecasts as PDF or CSV.
+- Admin-only Supabase email and password sign-in before the forecast opens; the approved admin can export forecasts as PDF or CSV.
 - Forecast history stored in Supabase Postgres with row-level security.
 - Cloudflare Worker deployment with D1 used for authentication rate limits.
 
@@ -37,12 +37,12 @@ The app runs at `http://localhost:5173`. Build using `pnpm build`.
 
 The project is prepared to connect to Supabase, but a Supabase project must be provisioned and configured before online sign-in and forecast saving work.
 
-1. Create a Supabase project and enable email OTP sign-in. For public email delivery, configure a custom SMTP provider. Follow `EMAIL-OTP-SETUP.md` for OTP template and email settings.
+1. Create the Supabase Auth user `reborngamming1@gmail.com` and set its password in Authentication → Users. Keep the account email confirmed. You can change or reset the password from this Supabase account; no email OTP or custom SMTP is required for sign-in.
 2. In the Supabase SQL editor, run `supabase/migrations/20261106_create_forecast_runs.sql`. This creates the forecast history table and per-user RLS policies.
 3. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` as Cloudflare Worker environment variables. Use the publishable/anon key only; never put a service-role or secret key in the app.
-4. Deploy the Worker. Only `reborngamming1@gmail.com` can request or verify a sign-in code. Admin sign-in is required before the forecast page loads. Once signed in, use **Download forecast PDF** to open the browser print dialog and choose **Save as PDF**, or export CSV.
+4. Deploy the Worker. Only `reborngamming1@gmail.com` can sign in with a password. Admin sign-in is required before the forecast page loads. Once signed in, use **Download forecast PDF** to open the browser print dialog and choose **Save as PDF**, or export CSV.
 
-The app sends the verified admin's access token to Supabase PostgREST. The database applies RLS; the application does not store the uploaded CSV itself, only the forecast summary and daily estimates. Apply any database changes to a separate project intended for this application. The admin email is an application allowlist in `cloudflare/worker.mjs` and `lib/email-auth.ts`.
+The app sends the verified admin's access token to Supabase PostgREST. The database applies RLS; the application does not store the uploaded CSV itself, only the forecast summary and daily estimates. Apply any database changes to a separate project intended for this application. The admin email is an application allowlist in `cloudflare/worker.mjs` and `lib/email-auth.ts`. Do not add Supabase secret/service-role keys to Cloudflare or GitHub for this sign-in flow.
 
 ### Cloudflare configuration
 
@@ -67,6 +67,6 @@ Open-Meteo commonly provides up to 16 forecast days. Longer selected periods sho
 - `cloudflare/worker.mjs` — API, Supabase session verification, forecast inserts and D1 rate limits.
 - `lib/email-auth.ts` — Supabase auth helper.
 - `supabase/migrations/` — Postgres schema and row-level security.
-- `EMAIL-OTP-SETUP.md` — email sign-in setup details.
+- `SUPABASE-ADMIN-LOGIN.md` — admin password sign-in setup details.
 
 Do not commit `.dev.vars`, `.env*`, credentials, customer-level data, or uploaded sales files. See `.gitignore` before uploading the project to GitHub.

@@ -15,11 +15,11 @@ pnpm dev
 
 4. Visit `http://localhost:5173`.
 
-You can try forecasts without signing in or uploading a CSV. To use your own history, download the CSV template from the page, fill in daily sales and optional store visitors, and upload it. The forecast can use up to one year of daily rows.
+Sign in with the approved admin account to open the planner. Uploading a CSV is optional; to use your own history, download the CSV template from the page, fill in daily sales and optional store visitors, and upload it. The forecast can use up to one year of daily rows.
 
 ## Connect Supabase
 
-Forecast saving requires a Supabase project. Run `supabase/migrations/20261106_create_forecast_runs.sql` in its SQL editor, enable email OTP and SMTP, then configure the Cloudflare Worker variables `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`. See `README.md` and `EMAIL-OTP-SETUP.md` for full steps. A Supabase secret/service-role key must never go in the browser or GitHub.
+Admin sign-in and forecast saving require a Supabase project. Create the confirmed Auth user `reborngamming1@gmail.com`, set its password in Supabase Authentication → Users, run `supabase/migrations/20261106_create_forecast_runs.sql`, then configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in the production Cloudflare Worker settings and deploy. See `README.md` and `SUPABASE-ADMIN-LOGIN.md` for full steps. A Supabase secret/service-role key must never go in the browser or GitHub.
 
 ## Upload to GitHub
 
