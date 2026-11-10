@@ -10,8 +10,8 @@
   },
   "d1_databases": [{
     "binding": "DB",
-    "database_name": "savehalf-db",
-    "database_id": "eb713092-165c-49b5-bb1b-6285775edf04"
+    "database_name": "coles-stock-planner-db",
+    "database_id": "7b265d90-e6d8-4dd6-b31b-e8ed2960bc86"
   }],
   "keep_vars": true,
   "observability": { "enabled": true }
