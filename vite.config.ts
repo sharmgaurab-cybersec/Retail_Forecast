@@ -6,7 +6,7 @@ import { sites } from "./build/sites-vite-plugin";
 import { connectorPreview } from "./build/connector-preview-plugin.mjs";
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
-  "eb713092-165c-49b5-bb1b-6285775edf04";
+  "7b265d90-e6d8-4dd6-b31b-e8ed2960bc86";
 
 const { d1, r2 } = hostingConfig;
 
@@ -22,7 +22,7 @@ const localBindingConfig = {
     ? [
         {
           binding: d1,
-          database_name: "savehalf-db",
+          database_name: "coles-stock-planner-db",
           database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
         },
       ]
