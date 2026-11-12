@@ -15,6 +15,18 @@ const localBindingConfig = {
   name: "coles-cold-drinks-stock-planner",
   main: "./build/sites-worker.ts",
   compatibility_flags: ["nodejs_compat"],
+  // Workers Builds injects this public D1 identifier at build time. Keeping the
+  // binding optional lets the app deploy while the database is being created.
+  d1_databases: process.env.COLES_D1_DATABASE_ID
+    ? [
+        {
+          binding: "DB",
+          database_name: process.env.COLES_D1_DATABASE_NAME || "coles-stock-planner-db",
+          database_id: process.env.COLES_D1_DATABASE_ID,
+          migrations_dir: "../../db/migrations",
+        },
+      ]
+    : [],
   r2_buckets: r2
     ? [
         {

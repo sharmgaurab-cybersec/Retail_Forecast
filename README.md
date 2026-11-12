@@ -1,6 +1,6 @@
 # Coles Sydney Cold Drinks Planner
 
-A simple Coles-themed forecasting prototype for cold drinks in Sydney. Choose a Sydney suburb and drink, refresh live weather, optionally upload up to four years of daily sales and people counts, then create a stock recommendation. The forecast works without a login, Supabase account, or database.
+A simple Coles-themed forecasting prototype for cold drinks in Sydney. Choose a Sydney suburb and drink, refresh live weather, optionally upload up to four years of daily sales and people counts, then create a stock recommendation. Every generated forecast is saved to Cloudflare D1 when the database is connected. The planner still calculates forecasts without a login.
 
 This independent project is not affiliated with Coles. Coles does not provide public store-level sales or visitor-count data. Use sales and people counts you are authorised to use. Do not upload customer names, IDs, or other personal information.
 
@@ -13,7 +13,8 @@ This independent project is not affiliated with Coles. Coles does not provide pu
 - Optional daily store visitors and annual suburb population fields.
 - Stock-on-hand, incoming stock, and safety-stock controls.
 - Forecast download as CSV or printable PDF.
-- No login, Supabase, D1, or saved account history.
+- Automatic D1 history for each forecast run, including the settings used and a row for every forecast day.
+- No login or Supabase setup.
 
 ## CSV format
 
@@ -46,9 +47,27 @@ Keep the project files together at the GitHub repository root. In Cloudflare Wor
 
 - Root directory: `/` (or the nested project directory if your files are inside one)
 - Build command: `pnpm build`
-- Deploy command: `pnpm exec wrangler deploy --config dist/server/wrangler.json --keep-vars`
+- Deploy command: `pnpm run deploy:cloudflare`
 
-The deployment does not need D1, Supabase variables, or any login setup. Do not use Cloudflare's static asset uploader for this project.
+### Connect forecast history to D1
+
+See [DATABASE-MODEL.md](DATABASE-MODEL.md) for the table relationship and stored fields.
+
+Create a Cloudflare D1 database named `coles-stock-planner-db` if you have not already created it. In Workers & Pages → `retail-forecast` → Settings → Builds, add this **build variable** (it is a database identifier, not a secret):
+
+`COLES_D1_DATABASE_ID` = the ID shown on the D1 database details page.
+
+The build uses that ID to generate the Worker binding named `DB`. Set the Workers Builds deploy command to:
+
+```sh
+pnpm run deploy:cloudflare
+```
+
+This command applies the checked-in SQL migration to the remote D1 database, then deploys the Worker. The migration creates `forecast_runs` and `forecast_days`. Each forecast is stored automatically after calculation. The uploaded sales CSV itself stays in the browser; the database saves the sales-data counts used, stock settings, forecast totals, and daily forecast/weather details.
+
+If `COLES_D1_DATABASE_ID` is missing, the deploy script skips migrations and the site can still deploy and calculate forecasts, but the result will say it was not saved. The database is not protected by a user login in this version, so do not use it for confidential store data on a public site.
+
+Do not use Cloudflare's static asset uploader for this project.
 
 ## Forecast notes
 

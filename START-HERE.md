@@ -20,4 +20,4 @@ Download the CSV template in the planner. `date` and `units_sold` are required. 
 
 ## Deploy
 
-Push the project files to GitHub, connect the repository in Cloudflare Workers Builds, and use the build and deploy commands in `BUILD-AND-DEPLOY.md`. No admin login, Supabase setup, D1 database, or secret variables are required.
+Push the project files to GitHub, connect the repository in Cloudflare Workers Builds, and use the build and deploy commands in `BUILD-AND-DEPLOY.md`. To save forecasts, connect the D1 database and add its ID as a Workers Builds **build variable**. No admin login or Supabase setup is required.

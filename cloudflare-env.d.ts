@@ -1,3 +1,5 @@
 declare namespace Cloudflare {
-  type Env = Record<string, never>;
+  interface Env {
+    DB?: D1Database;
+  }
 }
