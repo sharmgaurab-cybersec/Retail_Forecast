@@ -23,7 +23,7 @@ The template columns are:
 
 `date` and `units_sold` are required. `store_visitors` is the daily visitor total for the store. `annual_area_population` is the estimated population for the selected suburb in that year; repeat the annual value on that year's daily rows, or leave it blank if unknown. The planner uses daily visitors to estimate units per visitor. If daily visitor history is unavailable, it can use the latest two annual population values as a limited adjustment to the sales baseline.
 
-The file should represent one store and one selected drink/product. Dates can use `YYYY-MM-DD` or `DD/MM/YYYY`. Up to 1,461 daily rows are read. When no CSV is uploaded, the planner uses the editable typical sales per day and live weather/calendar adjustments.
+The file should represent one store and one selected drink/product. Dates can use `YYYY-MM-DD` or slash dates. Slash dates are read as Australian `DD/MM/YYYY` unless that would be an invalid date, in which case the parser uses `MM/DD/YYYY` (so `11/15/2025` is November 15). Use ISO dates where possible to avoid ambiguity. Up to 1,461 daily rows are read. When no CSV is uploaded, the planner uses the editable typical sales per day and live weather/calendar adjustments.
 
 ## Run locally
 
@@ -48,4 +48,4 @@ The deployment does not need D1, Supabase variables, or any login setup. Do not 
 
 ## Forecast notes
 
-The planner uses weekday-matched sales history when available; otherwise, it uses the typical-sales value. Daily store visitors can estimate units per visitor. Annual suburb population only provides a limited year-to-year adjustment when daily store visitor history is absent. Weather adjustments use forecast high temperature and rain; NSW public holidays receive a simple uplift. This is a transparent planning estimate, not a trained or validated retail model. Live weather is generally available for about 16 days; later dates use historical sales/calendar patterns.
+The planner uses recent matching-weekday sales and a historical month pattern when available; otherwise, it starts from the user-entered typical sales/day value. Daily store visitors can estimate units per visitor. Annual suburb population provides a limited year-to-year adjustment when daily visitor history is absent. Live forecast high temperature and rain adjust demand with different sensitivity by drink category; NSW public holidays receive a 15% example uplift. The result table and downloads show the baseline and these adjustments. This is a transparent planning estimate, not a trained or validated retail model. Live weather is generally available for about 16 days; later dates use historical sales/calendar patterns.
