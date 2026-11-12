@@ -16,7 +16,7 @@ In **Settings → Builds → Build variables and secrets**, add:
 
 This must be a **build variable**, not a Worker runtime variable. The ID is not secret; the build uses it to generate the `DB` binding in the deployment config. If you have not created the database, create it in Cloudflare D1 first.
 
-`pnpm run deploy:cloudflare` detects the D1 binding in the generated config, applies `db/migrations/0001_forecast_history.sql` to the remote database, then deploys the Worker. That migration creates `forecast_runs` and `forecast_days`. If the build variable is missing, it skips the migration and deploys without persistence so the site itself can still go live.
+`pnpm run deploy:cloudflare` detects the D1 binding in the generated config, applies the SQL migrations in `db/migrations` to the remote database, then deploys the Worker. The migrations create the full model described in `DATABASE-MODEL.md`. If the build variable is missing, it skips migrations and deploys without persistence so the site itself can still go live.
 
 After deployment, create a forecast in the web app. The result should show “Saved automatically to forecast history”. If D1 is not connected, the forecast still calculates and the result explains why it was not saved.
 

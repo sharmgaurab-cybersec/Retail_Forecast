@@ -76,17 +76,43 @@ export async function handleForecastApi(request: Request, db: ForecastDatabase):
 
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
+  const snapshotDate = new Intl.DateTimeFormat("sv-SE", { timeZone: "Australia/Sydney" }).format(new Date());
   const weatherDaysCount = days.filter((day) => day.weather !== null).length;
+
+  const storeCandidate = crypto.randomUUID();
+  await db.prepare(`
+    INSERT INTO stores (store_id, store_name, suburb, latitude, longitude, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT (suburb, latitude, longitude) DO NOTHING
+  `).bind(storeCandidate, `Coles ${body.suburb.trim()}`, body.suburb.trim(), body.latitude, body.longitude, createdAt).run();
+  const store = await db.prepare(`
+    SELECT store_id FROM stores WHERE suburb = ? AND latitude = ? AND longitude = ? LIMIT 1
+  `).bind(body.suburb.trim(), body.latitude, body.longitude).first<{ store_id: string }>();
+
+  const productCandidate = crypto.randomUUID();
+  await db.prepare(`
+    INSERT INTO products (product_id, category, product_name, created_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT (category, product_name) DO NOTHING
+  `).bind(productCandidate, body.drinkType.trim(), body.product.trim(), createdAt).run();
+  const product = await db.prepare(`
+    SELECT product_id FROM products WHERE category = ? AND product_name = ? LIMIT 1
+  `).bind(body.drinkType.trim(), body.product.trim()).first<{ product_id: string }>();
+  if (!store?.store_id || !product?.product_id) {
+    return response({ error: "Could not prepare the store and product records for this forecast." }, 500);
+  }
+
   const runInsert = db.prepare(`
     INSERT INTO forecast_runs (
-      id, created_at, suburb, latitude, longitude, drink_type, product, horizon_days,
+      id, created_at, suburb, latitude, longitude, drink_type, product, horizon_days, store_id, product_id,
       usual_sales_per_day, stock_on_hand, incoming_stock, safety_stock, planned_price,
       promotion_planned, lead_time_days, sales_days_count, visitor_days_count,
       population_years_count, promotion_days_count, stockout_days_count, price_days_count,
       weather_days_count, expected_sales_units, recommended_order_units
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id, createdAt, body.suburb.trim(), body.latitude, body.longitude, body.drinkType.trim(), body.product.trim(), horizon,
+    store.store_id, product.product_id,
     body.usualSalesPerDay, body.stockOnHand, body.incomingStock, body.safetyStock, body.plannedPrice,
     body.promotionPlanned ? 1 : 0, body.leadTimeDays, body.salesDaysCount, body.visitorDaysCount,
     body.populationYearsCount, body.promotionDaysCount, body.stockoutDaysCount, body.priceDaysCount,
@@ -96,7 +122,7 @@ export async function handleForecastApi(request: Request, db: ForecastDatabase):
   const dayInserts = days.map((raw) => {
     const day = raw as ForecastDayInput;
     return db.prepare(`
-      INSERT INTO forecast_days (
+      INSERT INTO daily_forecasts (
         forecast_run_id, forecast_date, baseline_units, expected_sales_units,
         weather_adjustment_percent, seasonal_adjustment_percent, population_adjustment_percent,
         promotion_adjustment_percent, price_adjustment_percent, estimated_visitors,
@@ -109,9 +135,36 @@ export async function handleForecastApi(request: Request, db: ForecastDatabase):
     );
   });
 
+  const weatherInserts = days.filter((day) => day.weather !== null).map((raw) => {
+    const day = raw as ForecastDayInput;
+    return db.prepare(`
+      INSERT INTO weather_daily (
+        weather_id, store_id, weather_date, observation_type, high_temperature_c,
+        rainfall_mm, data_source, updated_at
+      ) VALUES (?, ?, ?, 'forecast', ?, ?, 'Open-Meteo', ?)
+      ON CONFLICT (store_id, weather_date, observation_type) DO UPDATE SET
+        high_temperature_c = excluded.high_temperature_c,
+        rainfall_mm = excluded.rainfall_mm,
+        data_source = excluded.data_source,
+        updated_at = excluded.updated_at
+    `).bind(crypto.randomUUID(), store.store_id, day.date, day.weather!.max, day.weather!.rain, createdAt);
+  });
+
+  const inventoryInsert = db.prepare(`
+    INSERT INTO inventory_snapshots (
+      snapshot_id, store_id, product_id, snapshot_date, on_hand_units,
+      incoming_units, safety_stock_units, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT (store_id, product_id, snapshot_date) DO UPDATE SET
+      on_hand_units = excluded.on_hand_units,
+      incoming_units = excluded.incoming_units,
+      safety_stock_units = excluded.safety_stock_units,
+      created_at = excluded.created_at
+  `).bind(crypto.randomUUID(), store.store_id, product.product_id, snapshotDate, body.stockOnHand, body.incomingStock, body.safetyStock, createdAt);
+
   try {
-    await db.batch([runInsert, ...dayInserts]);
-    return response({ id, createdAt, savedDays: dayInserts.length }, 201);
+    await db.batch([runInsert, inventoryInsert, ...weatherInserts, ...dayInserts]);
+    return response({ id, createdAt, savedDays: dayInserts.length, savedWeatherDays: weatherInserts.length }, 201);
   } catch (error) {
     console.error("Could not save forecast run", error);
     return response({ error: "Could not save this forecast. Check that the D1 migration has been applied." }, 500);

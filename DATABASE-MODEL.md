@@ -1,19 +1,26 @@
 # Forecast history database model
 
-The current planner needs to retain each completed forecast and the assumptions behind it. The D1 schema uses two tables linked by the forecast run ID.
+The planner uses a normalized D1 model for stores, products, sales, inventory, deliveries, weather, and forecasts. This matches the commercial model diagram while keeping forecast history linked to the selected store and product.
 
 | Table | One row represents | Main fields |
 | --- | --- | --- |
-| `forecast_runs` | One submitted forecast | Created time, Sydney suburb coordinates, drink and product, forecast length, stock settings, summary counts from sales data, expected sales, recommended order, and model version |
-| `forecast_days` | One date inside a forecast | Baseline and expected units, weather and other adjustment percentages, estimated visitors, weather high/rain, and public holiday |
+| `suppliers` | One supplier | Supplier name/code |
+| `stores` | One Coles location | Name, Sydney suburb, coordinates |
+| `products` | One drink product | Category, product name, optional brand/SKU |
+| `deliveries` | One supplier delivery/order line | Supplier, store, product, ordered/received dates, quantities, status |
+| `weather_daily` | Weather for one store and date | Forecast/observed type, high temperature, rainfall, source |
+| `daily_sales` | Sales for one store, product, and date | Units, visitors, population, promotion, price, stockout |
+| `inventory_snapshots` | Stock levels for one store, product, and date | On-hand, incoming, safety stock |
+| `forecast_runs` | One submitted forecast | Store/product, suburb coordinates, forecast length, stock settings, sales-data summary, expected sales, recommended order, model version |
+| `daily_forecasts` | One date inside a forecast | Baseline and expected units, weather and other adjustment percentages, visitors, weather, holiday |
 
-Relationship: one `forecast_runs` record has one `forecast_days` record for each forecast date. The child table uses `(forecast_run_id, forecast_date)` as its primary key and references `forecast_runs.id`; deleting a run cascades to its daily rows.
+Relationships: a store has sales, inventory, weather, deliveries, and forecast runs; a product has sales, inventory, deliveries, and forecast runs; a supplier has deliveries; and one forecast run has daily forecast rows. The daily forecast table uses `(forecast_run_id, forecast_date)` as its primary key.
 
 ## What is persisted
 
-- The forecast inputs and final order recommendation.
-- Counts describing the uploaded sales history (for example, number of sales days, visitor days, promotions, stockouts, and price observations).
-- The forecast result and weather details for each day.
+- Each forecast automatically adds or reuses its store and product records, stores the stock snapshot, saves the forecast run and its daily rows, and records available live weather.
+- Counts describing uploaded sales history (for example, number of sales days, visitor days, promotions, stockouts, and price observations) are saved with the forecast run.
+- `suppliers`, `deliveries`, and `daily_sales` are created for the commercial model but are not populated by the current planner. The raw CSV remains in the browser, so sales rows are not uploaded.
 
 The raw CSV is not uploaded. It remains in the browser and is used only to calculate that forecast. Customer names and IDs are not part of this model.
 
@@ -21,4 +28,4 @@ The raw CSV is not uploaded. It remains in the browser and is used only to calcu
 
 This is a single public prototype database without user or store access controls. Anyone who can use the public planner can submit forecast runs; the app has no run-history browsing API. For a commercial rollout, add authenticated organizations and users, stores, products/SKUs, imported daily sales, inventory snapshots, and supplier lead-time records, then enforce row access by organization/store. Do not use the public prototype to store confidential operational data.
 
-The schema is installed by `db/migrations/0001_forecast_history.sql` during `pnpm run deploy:cloudflare`.
+The schema is installed by `db/migrations/0001_forecast_history.sql` and `0002_commercial_forecasting_model.sql` during `pnpm run deploy:cloudflare`.

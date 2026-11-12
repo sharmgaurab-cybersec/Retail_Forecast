@@ -63,7 +63,7 @@ The build uses that ID to generate the Worker binding named `DB`. Set the Worker
 pnpm run deploy:cloudflare
 ```
 
-This command applies the checked-in SQL migration to the remote D1 database, then deploys the Worker. The migration creates `forecast_runs` and `forecast_days`. Each forecast is stored automatically after calculation. The uploaded sales CSV itself stays in the browser; the database saves the sales-data counts used, stock settings, forecast totals, and daily forecast/weather details.
+This command applies the checked-in SQL migrations to the remote D1 database, then deploys the Worker. The migrations create the full model in [DATABASE-MODEL.md](DATABASE-MODEL.md). Each forecast is stored automatically after calculation. The uploaded sales CSV itself stays in the browser; the database saves the sales-data counts used, stock settings, forecast totals, and daily forecast/weather details.
 
 If `COLES_D1_DATABASE_ID` is missing, the deploy script skips migrations and the site can still deploy and calculate forecasts, but the result will say it was not saved. The database is not protected by a user login in this version, so do not use it for confidential store data on a public site.
 
