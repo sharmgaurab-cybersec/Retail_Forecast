@@ -25,6 +25,10 @@ The template columns are:
 
 The file should represent one store and one selected drink/product. Dates can use `YYYY-MM-DD` or slash dates. Slash dates are read as Australian `DD/MM/YYYY` unless that would be an invalid date, in which case the parser uses `MM/DD/YYYY` (so `11/15/2025` is November 15). Use ISO dates where possible to avoid ambiguity. Up to 1,461 daily rows are read. When no CSV is uploaded, the planner uses the editable typical sales per day and live weather/calendar adjustments.
 
+## Historical sales validation
+
+After CSV upload, the planner runs a rolling sales-only check: it predicts up to the last 28 eligible history days using only earlier, same-weekday sales and compares those estimates with actual sales. It reports mean absolute error, weighted absolute percentage error, and forecast bias. Promotion and stockout days are excluded. This basic check does not validate the weather adjustment because historical weather is not part of the sales CSV. Fewer than 14 eligible sales days is treated as insufficient to calculate the check.
+
 ## Run locally
 
 Requirements: Node.js 22.13+ and pnpm 11.25+.

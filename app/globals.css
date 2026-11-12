@@ -7,3 +7,4 @@
 .upload-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.check-label{display:flex;align-items:center;gap:9px}.check-label input{width:18px;min-height:18px;flex:none}
 
 .result table{min-width:1120px}
+.validation-panel{margin-top:18px;padding:16px;background:#f5f8f5;border:1px solid var(--line);border-radius:10px;display:grid;gap:12px;font-size:13px;color:var(--muted)}.validation-panel>div:first-child{display:grid;gap:3px}.validation-panel strong{color:var(--ink)}.validation-panel p{margin:0}.validation-metrics{display:flex;gap:20px;flex-wrap:wrap}.validation-metrics span{display:grid;gap:2px}.validation-metrics strong{font-size:18px;color:var(--green)}
