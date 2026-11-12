@@ -296,9 +296,9 @@ export default function ForecastDashboard() {
         setSaveStatus(`Saved automatically to forecast history · ${result.id.slice(0, 8)}`);
       } catch (error) {
         console.error('Forecast save failed', error);
-        setSaveStatus(error instanceof Error && error.message.includes('storage is not connected')
-          ? 'Forecast calculated, but not saved. Connect the Coles D1 database and deploy to turn on automatic history.'
-          : 'Forecast calculated, but not saved. Check the D1 binding and apply the database migration, then try again.');
+        setSaveStatus(error instanceof Error && error.message.includes('Supabase storage is not configured')
+          ? 'Forecast calculated, but not saved. Add the Supabase URL and secret key to the Worker runtime settings, then deploy.'
+          : 'Forecast calculated, but not saved to Supabase. Check the Worker secret and run the Supabase database migration.');
       }
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Forecast could not be calculated.'); }
     finally { setBusy(false); }

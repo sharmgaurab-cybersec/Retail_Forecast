@@ -49,25 +49,20 @@ Keep the project files together at the GitHub repository root. In Cloudflare Wor
 - Build command: `pnpm build`
 - Deploy command: `pnpm run deploy:cloudflare`
 
-### Connect forecast history to D1
+### Connect forecast history to Supabase
 
-See [DATABASE-MODEL.md](DATABASE-MODEL.md) for the table relationship and stored fields.
+The planner now saves each forecast to Supabase (including one `forecast_runs` row and its `daily_forecasts`, plus store/product, inventory, and available weather records). Apply [`supabase/migrations/202611120001_coles_forecast_model.sql`](supabase/migrations/202611120001_coles_forecast_model.sql) in the SQL Editor of the Supabase project you want to use. The migration renames an older single-table forecast schema to `forecast_runs_legacy` rather than deleting its data.
 
-Create a Cloudflare D1 database named `coles-stock-planner-db` if you have not already created it. In Workers & Pages → `retail-forecast` → Settings → Builds, add this **build variable** (it is a database identifier, not a secret):
+In Cloudflare Workers & Pages → `retail-forecast` → Settings → Variables and secrets → Production, configure these **runtime** values:
 
-`COLES_D1_DATABASE_ID` = the ID shown on the D1 database details page.
+- `SUPABASE_URL` = your Supabase Project URL (already configured in your Worker)
+- `SUPABASE_SECRET_KEY` = a Supabase secret key (`sb_secret_...`) stored as a secret, never as a build variable
 
-The build uses that ID to generate the Worker binding named `DB`. Set the Workers Builds deploy command to:
+Redeploy after setting the secret. Keep the secret server-side; do not add it to source code or the browser. The planner calls a locked-down Postgres RPC using the secret key, and the SQL migration denies direct `anon`/`authenticated` table access. The old Cloudflare D1 binding is no longer used for new forecast saves. Existing D1 records remain there and are not copied automatically.
 
-```sh
-pnpm run deploy:cloudflare
-```
+To inspect saved forecasts, open Supabase → Table Editor → `forecast_runs`; open a row’s UUID in `daily_forecasts` using `forecast_run_id`. The CSV data is used in the browser for that forecast; raw CSV sales rows are not uploaded.
 
-This command applies the checked-in SQL migrations to the remote D1 database, then deploys the Worker. The migrations create the full model in [DATABASE-MODEL.md](DATABASE-MODEL.md). Each forecast is stored automatically after calculation. The uploaded sales CSV itself stays in the browser; the database saves the sales-data counts used, stock settings, forecast totals, and daily forecast/weather details.
-
-If `COLES_D1_DATABASE_ID` is missing, the deploy script skips migrations and the site can still deploy and calculate forecasts, but the result will say it was not saved. The database is not protected by a user login in this version, so do not use it for confidential store data on a public site.
-
-Do not use Cloudflare's static asset uploader for this project.
+Deploy with Workers Builds: `pnpm build` and `pnpm run deploy:cloudflare`. Do not use Cloudflare's static asset uploader.
 
 ## Forecast notes
 

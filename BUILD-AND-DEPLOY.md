@@ -1,25 +1,22 @@
 # Build and deploy the Coles Cold Drinks Planner
 
-The planner calculates forecasts without login. Cloudflare D1 stores every generated forecast when its database binding is configured.
+The planner calculates forecasts without login and saves generated forecast results to Supabase.
 
-## Cloudflare Workers Builds settings
+## One-time Supabase setup
 
-Keep the project files together at the selected repository root. Configure:
+1. Open the SQL Editor in the Supabase project that should hold your forecasts.
+2. Run the full SQL in `supabase/migrations/202611120001_coles_forecast_model.sql`. It creates the commercial tables and save function. If an older `forecast_runs` table exists, it is renamed to `forecast_runs_legacy` and preserved.
+3. In Cloudflare → Workers & Pages → `retail-forecast` → Settings → Variables and secrets → Production, add `SUPABASE_SECRET_KEY` as a **secret**. Use the `sb_secret_...` key from the same Supabase project. `SUPABASE_URL` must also point to that project.
+4. Redeploy the Worker. The secret is only used by the server endpoint; never put it in frontend code or GitHub.
 
-- Root directory: `/` (or the project subdirectory if it is nested)
+## Cloudflare Workers Builds
+
+- Root directory: `/` (or the project subdirectory if nested)
 - Build command: `pnpm build`
 - Deploy command: `pnpm run deploy:cloudflare`
 
-In **Settings → Builds → Build variables and secrets**, add:
+There is no D1 database binding or `COLES_D1_DATABASE_ID` build variable required. Existing D1 records are untouched, but new forecasts are saved to Supabase. The app writes forecast runs, daily forecast rows, store/product rows, inventory snapshots, and available live weather. It does not upload the original CSV rows.
 
-- `COLES_D1_DATABASE_ID` = the ID for the D1 database named `coles-stock-planner-db`
+## Verify
 
-This must be a **build variable**, not a Worker runtime variable. The ID is not secret; the build uses it to generate the `DB` binding in the deployment config. If you have not created the database, create it in Cloudflare D1 first.
-
-`pnpm run deploy:cloudflare` detects the D1 binding in the generated config, applies the SQL migrations in `db/migrations` to the remote database, then deploys the Worker. The migrations create the full model described in `DATABASE-MODEL.md`. If the build variable is missing, it skips migrations and deploys without persistence so the site itself can still go live.
-
-After deployment, create a forecast in the web app. The result should show “Saved automatically to forecast history”. If D1 is not connected, the forecast still calculates and the result explains why it was not saved.
-
-The app stores forecast settings, summary counts from the uploaded CSV, the order recommendation, and every daily forecast. It does not upload or store the raw CSV. This version has no user login, so do not upload confidential store information while the site is public.
-
-Deploy from Workers Builds; do not use Cloudflare's static asset uploader.
+After the deployment completes, create a forecast. Its status should say it was saved automatically. In Supabase → Table Editor, check `forecast_runs`, then use that row’s `id` to find its rows in `daily_forecasts`.

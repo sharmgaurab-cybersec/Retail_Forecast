@@ -6,7 +6,7 @@ import { handleForecastApi } from "./forecast-api";
 export default {
   fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
     if (new URL(request.url).pathname === "/api/forecasts") {
-      return handleForecastApi(request, env.DB);
+      return handleForecastApi(request, env);
     }
     let binding = ctx.props?.CONNECTORS;
     // Local preview emulates the same request-scoped capability. This branch and
