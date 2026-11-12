@@ -5,10 +5,7 @@ import { readExecutionProfile } from "./scripts/execution-profile.mjs";
 import { sites } from "./build/sites-vite-plugin";
 import { connectorPreview } from "./build/connector-preview-plugin.mjs";
 
-// Replace this with the database ID for `coles-stock-planner-db` in Cloudflare D1.
-const COLES_D1_DATABASE_ID = "PASTE_YOUR_COLES_D1_DATABASE_ID_HERE";
-
-const { d1, r2 } = hostingConfig;
+const { r2 } = hostingConfig;
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
@@ -18,15 +15,6 @@ const localBindingConfig = {
   name: "coles-cold-drinks-stock-planner",
   main: "./build/sites-worker.ts",
   compatibility_flags: ["nodejs_compat"],
-  d1_databases: d1
-    ? [
-        {
-          binding: d1,
-          database_name: "coles-stock-planner-db",
-          database_id: 7b265d90-e6d8-4dd6-b31b-e8ed2960bc86,
-        },
-      ]
-    : [],
   r2_buckets: r2
     ? [
         {

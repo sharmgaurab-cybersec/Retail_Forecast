@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 type Place = { name: string; lat: number; lon: number };
 type GeocodedPlace = { name: string; latitude: number; longitude: number; admin1?: string; admin2?: string; country_code?: string };
-type SaleDay = { date: string; units: number; visitors: number | null };
+type SaleDay = { date: string; units: number; visitors: number | null; areaPopulation: number | null };
 type WeatherDay = { date: string; max: number; rain: number };
 type ForecastDay = { date: string; sales: number; visitors: number | null; weather: WeatherDay | null; holiday: string | null };
 type WeatherReply = { daily: { time: string[]; temperature_2m_max: number[]; precipitation_sum?: number[] } };
@@ -56,22 +56,23 @@ function parseSalesCsv(text: string): SaleDay[] {
   if (headerAt < 0) throw new Error('Use date and units_sold columns.');
   const h = rows[headerAt].map(norm), dateCol = h.findIndex(x => ['date', 'saledate', 'salesdate'].includes(x)), unitsCol = h.findIndex(x => ['unitssold', 'units', 'quantity', 'qty'].includes(x));
   const visitorCol = h.findIndex(x => ['storevisitors', 'dailyvisitors', 'footfall', 'storetransactions', 'transactioncount', 'transactions'].includes(x));
-  const totals = new Map<string, { units: number; visitorSum: number; visitorRows: number }>();
+  const populationCol = h.findIndex(x => ['annualareapopulation', 'areapopulation', 'suburbpopulation', 'annualpopulation', 'population'].includes(x));
+  const totals = new Map<string, { units: number; visitorSum: number; visitorRows: number; populationSum: number; populationRows: number }>();
   for (const r of rows.slice(headerAt + 1)) {
     const d = parseDate(r[dateCol] || ''), units = Number((r[unitsCol] || '').replaceAll(',', ''));
     if (!d || !Number.isFinite(units) || units < 0) continue;
-    const t = totals.get(d) || { units: 0, visitorSum: 0, visitorRows: 0 };
+    const t = totals.get(d) || { units: 0, visitorSum: 0, visitorRows: 0, populationSum: 0, populationRows: 0 };
     t.units += units;
     if (visitorCol >= 0) { const v = Number((r[visitorCol] || '').replaceAll(',', '')); if (Number.isFinite(v) && v >= 0) { t.visitorSum += v; t.visitorRows++; } }
+    if (populationCol >= 0) { const p = Number((r[populationCol] || '').replaceAll(',', '')); if (Number.isFinite(p) && p > 0) { t.populationSum += p; t.populationRows++; } }
     totals.set(d, t);
   }
-  const result = [...totals].map(([date, t]) => ({ date, units: t.units, visitors: t.visitorRows ? t.visitorSum / t.visitorRows : null })).sort((a, b) => a.date.localeCompare(b.date));
+  const result = [...totals].map(([date, t]) => ({ date, units: t.units, visitors: t.visitorRows ? t.visitorSum / t.visitorRows : null, areaPopulation: t.populationRows ? t.populationSum / t.populationRows : null })).sort((a, b) => a.date.localeCompare(b.date));
   if (!result.length) throw new Error('No valid daily sales rows were found.');
-  return result.slice(-366);
+  return result.slice(-1461);
 }
 
 export default function ForecastDashboard() {
-  const [access, setAccess] = useState<'checking'|'allowed'|'denied'|'error'>('checking');
   const [place, setPlace] = useState(areas[0]);
   const [placeQuery, setPlaceQuery] = useState(areas[0].name);
   const [placeSuggestions, setPlaceSuggestions] = useState<Place[]>(areas);
@@ -83,25 +84,25 @@ export default function ForecastDashboard() {
   const [holidayData, setHolidayData] = useState<Holiday[]>([]);
   const [liveDataReady, setLiveDataReady] = useState(false);
   const [stock, setStock] = useState(0); const [incoming, setIncoming] = useState(0); const [safety, setSafety] = useState(0); const [usual, setUsual] = useState(75);
-  const [rows, setRows] = useState<ForecastDay[]>([]); const [busy, setBusy] = useState(false); const [message, setMessage] = useState('Upload sales if available, then create a forecast.'); const [saved, setSaved] = useState('');
+  const [rows, setRows] = useState<ForecastDay[]>([]); const [busy, setBusy] = useState(false); const [message, setMessage] = useState('Upload sales if available, then create a forecast.');
   const latestVisitors = [...sales].reverse().find(x => x.visitors !== null);
   const estimatedSales = rows.reduce((a, r) => a + r.sales, 0);
   const order = Math.max(0, Math.ceil(estimatedSales + safety - stock - incoming));
   const visitorDays = sales.filter(s => s.visitors !== null && s.visitors > 0).length;
+  const populationByYear = useMemo(() => {
+    const grouped = new Map<number, number[]>();
+    for (const sale of sales) {
+      if (sale.areaPopulation === null) continue;
+      const year = Number(sale.date.slice(0, 4));
+      const values = grouped.get(year) || [];
+      values.push(sale.areaPopulation);
+      grouped.set(year, values);
+    }
+    return [...grouped.entries()].map(([year, values]) => ({ year, population: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) })).sort((a, b) => a.year - b.year);
+  }, [sales]);
+  const latestPopulation = populationByYear.at(-1) || null;
   const items = useMemo(() => drinkTypes[drinkType], [drinkType]);
-  useEffect(() => {
-    let active = true;
-    fetch('/api/session', { cache: 'no-store' }).then(async response => {
-      if (!response.ok) throw new Error('Could not verify admin sign-in.');
-      return response.json() as Promise<{ enabled?: boolean; signedIn?: boolean; email?: string }>;
-    }).then(session => {
-      if (!active) return;
-      if (session.enabled && session.signedIn && session.email?.toLowerCase() === 'reborngamming1@gmail.com') setAccess('allowed');
-      else { setAccess('denied'); window.location.replace('/login?next=/'); }
-    }).catch(() => { if (active) setAccess('error'); });
-    return () => { active = false; };
-  }, []);
-  useEffect(() => { setLiveDataReady(false); setRows([]); setSaved(''); }, [place.lat, place.lon, horizon]);
+  useEffect(() => { setLiveDataReady(false); setRows([]); }, [place.lat, place.lon, horizon]);
   useEffect(() => {
     const query = placeQuery.trim();
     const existing = areas.find(a => a.name.toLowerCase() === query.toLowerCase());
@@ -123,11 +124,11 @@ export default function ForecastDashboard() {
   }, [placeQuery]);
   async function upload(file?: File) {
     if (!file) return;
-    try { const loaded = parseSalesCsv(await file.text()); setSales(loaded); const v = loaded.filter(s => s.visitors !== null).length; setMessage(`Loaded ${loaded.length} sales days${v ? ` and visitor counts for ${v} days` : ''}. CSV data stays in this browser.`); setRows([]); setSaved(''); }
+    try { const loaded = parseSalesCsv(await file.text()); setSales(loaded); const v = loaded.filter(s => s.visitors !== null).length; const p = new Set(loaded.filter(s => s.areaPopulation !== null).map(s => s.date.slice(0, 4))).size; setMessage(`Loaded ${loaded.length} sales days${v ? ` and visitor counts for ${v} days` : ''}${p ? ` plus population for ${p} years` : ''}. CSV data stays in this browser.`); setRows([]); }
     catch (e) { setMessage(e instanceof Error ? e.message : 'Could not read this CSV.'); }
   }
   async function refreshLiveData() {
-    setBusy(true); setLiveDataReady(false); setRows([]); setSaved(''); setMessage(`Refreshing live weather and NSW holiday dates for ${place.name}…`);
+    setBusy(true); setLiveDataReady(false); setRows([]); setMessage(`Refreshing live weather and NSW holiday dates for ${place.name}…`);
     try {
       const q = new URLSearchParams({ latitude: String(place.lat), longitude: String(place.lon), daily: 'temperature_2m_max,precipitation_sum,weather_code', forecast_days: '16', timezone: 'Australia/Sydney' });
       const [weatherReply, holidayReplies] = await Promise.allSettled([
@@ -144,7 +145,7 @@ export default function ForecastDashboard() {
   }
   async function forecast() {
     if (!liveDataReady) return;
-    setBusy(true); setRows([]); setSaved(''); setMessage('Calculating your forecast from the refreshed data…');
+    setBusy(true); setRows([]); setMessage('Calculating your forecast from the refreshed data…');
     try {
       const weatherMap = weatherData;
       const holidays = holidayData;
@@ -152,6 +153,10 @@ export default function ForecastDashboard() {
       const salesWeekday = (d: Date) => sales.filter(s => new Date(`${s.date}T12:00:00`).getDay() === d.getDay()).slice(-12);
       const trafficValues = sales.filter(s => s.visitors !== null && s.visitors > 0);
       const unitsPerVisitor = trafficValues.length ? trafficValues.reduce((sum, v) => sum + v.units, 0) / trafficValues.reduce((sum, v) => sum + (v.visitors || 0), 0) : 0;
+      const priorPopulation = populationByYear.at(-2);
+      const populationFactor = !trafficValues.length && latestPopulation && priorPopulation && priorPopulation.population > 0
+        ? clamp(latestPopulation.population / priorPopulation.population, 0.9, 1.1)
+        : 1;
       const first = new Date(); first.setDate(first.getDate() + 1); first.setHours(12, 0, 0, 0);
       const days: ForecastDay[] = Array.from({ length: horizon }, (_, i) => {
         const d = new Date(first); d.setDate(d.getDate() + i); const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -160,15 +165,12 @@ export default function ForecastDashboard() {
         const tempFactor = w ? clamp(1 + (w.max - 22) * 0.025 - clamp(w.rain / 50, 0, 0.15), 0.6, 1.5) : 1;
         const base = visitors !== null && trafficValues.length && unitsPerVisitor > 0 ? unitsPerVisitor * visitors : avg;
         const holiday = holidays.find(x => x.date === key)?.name || null;
-        return { date: key, sales: Math.max(0, Math.round(base * tempFactor * (holiday ? 1.15 : 1))), visitors, weather: w, holiday };
+        return { date: key, sales: Math.max(0, Math.round(base * tempFactor * populationFactor * (holiday ? 1.15 : 1))), visitors, weather: w, holiday };
       });
       setRows(days);
       const weatherDays = days.filter(d => d.weather).length;
-      setMessage(`${weatherDays} of ${horizon} days use refreshed live weather. ${visitorDays ? `${visitorDays} days of visitor history included.` : 'Sales history or typical sales/day is used because no visitor history is loaded.'}`);
-      const token = await fetch('/api/forecast-runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ suburb: place.name, drink_type: drinkType, product, horizon_days: horizon, daily: days, visitors_days: visitorDays, source: sales.length ? 'csv' : 'assumption', order_recommendation: Math.max(0, Math.ceil(days.reduce((sum, d) => sum + d.sales, 0) + safety - stock - incoming)) }) });
-      if (token.ok) setSaved('Forecast saved to Supabase.');
-      else if (token.status === 401 || token.status === 503) setSaved('Forecast ready. Online saving is unavailable; download the report to keep a copy.');
-      else setSaved('Forecast ready. Could not save to Supabase; you can still download the results.');
+      const populationNote = populationFactor !== 1 ? ` Annual suburb population trend (${nf.format(priorPopulation!.population)} to ${nf.format(latestPopulation!.population)}) is included as a limited adjustment.` : '';
+      setMessage(`${weatherDays} of ${horizon} forecast days use live weather. ${visitorDays ? `${visitorDays} daily visitor records were used.` : 'Sales history or typical sales/day is used.'}${populationNote}`);
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Forecast could not be calculated.'); }
     finally { setBusy(false); }
   }
@@ -181,13 +183,11 @@ export default function ForecastDashboard() {
     popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Coles cold drinks forecast</title><style>body{font:12px Arial,sans-serif;color:#17382a;padding:28px}h1{font-size:24px;margin:0 0 6px}.meta{color:#52675a;margin:0 0 18px}.order{font-size:20px;font-weight:bold;color:#176b3a;margin:15px 0}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px;border-bottom:1px solid #d9e3dc}th{background:#f0f5ec;font-size:10px;text-transform:uppercase}@media print{body{padding:0}}</style></head><body><h1>Cold drinks forecast</h1><p class="meta">${escape(place.name)} · ${escape(product)} · ${horizon} days</p><p class="order">Recommended order: ${nf.format(order)} drinks</p><p>Expected sales: ${nf.format(estimatedSales)} drinks</p><table><thead><tr><th>Date</th><th>Expected sales</th><th>Estimated visitors</th><th>Weather</th><th>Holiday</th></tr></thead><tbody>${body}</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>`);
     popup.document.close();
   }
-  async function signOut() { await fetch('/api/auth/logout', { method: 'POST' }); window.location.replace('/login'); }
-  if (access !== 'allowed') return <main className="login-page"><section className="login-card" role="status"><a className="brand" href="/">Coles Stock Planner</a><h1>{access === 'error' ? 'Can’t verify admin access' : 'Checking admin sign-in…'}</h1><p>{access === 'error' ? 'Refresh this page or sign in again to view the forecast.' : 'The forecast opens after the approved admin email is verified.'}</p>{access === 'error' && <a className="primary" href="/login">Admin sign in</a>}</section></main>;
-  return <><header className="bar"><a className="logo" href="/">Coles <span>Stock Planner</span></a><span className="tag">COLD DRINKS · SYDNEY</span><span className="login-link">Admin: reborngamming1@gmail.com</span><button className="header-signout" onClick={() => void signOut()}>Sign out</button></header><main className="shell"><section className="intro"><p className="kicker">WEATHER-AWARE REPLENISHMENT</p><h1>Plan cold drinks with less guesswork.</h1><p>Use your store sales and visitor counts, plus local weather and NSW holidays, to estimate what to order.</p></section>
+  return <><header className="bar"><a className="logo" href="/">Coles <span>Stock Planner</span></a><span className="tag">COLD DRINKS · SYDNEY</span></header><main className="shell"><section className="intro"><p className="kicker">WEATHER-AWARE REPLENISHMENT</p><h1>Plan cold drinks with less guesswork.</h1><p>Choose a Sydney suburb and drink, then refresh the local weather before creating a forecast.</p></section>
     <section className="card"><div className="card-title"><span>1</span><div><h2>Choose your store and drinks</h2><p>Coles only · Search Sydney suburbs</p></div></div><div className="grid four"><label>Suburb<input list="sydney-suburbs" value={placeQuery} onChange={e => setPlaceQuery(e.target.value)} placeholder="Type a Sydney suburb"/><datalist id="sydney-suburbs">{placeSuggestions.map((a, i) => <option key={`${a.name}-${i}`} value={a.name}/>)}</datalist></label><label>Drink type<select value={drinkType} onChange={e => { setDrinkType(e.target.value); setProduct(drinkTypes[e.target.value][0]); }}>{Object.keys(drinkTypes).map(x => <option key={x}>{x}</option>)}</select></label><label>Product<select value={product} onChange={e => setProduct(e.target.value)}>{items.map(x => <option key={x}>{x}</option>)}</select></label><label>Forecast period<select value={horizon} onChange={e => setHorizon(Number(e.target.value))}><option value={7}>7 days</option><option value={14}>14 days</option><option value={30}>30 days</option></select></label></div><p className="privacy">Type a Sydney suburb and choose a matching suggestion to load its local weather coordinates.</p><button className="secondary refresh-button" onClick={() => void refreshLiveData()} disabled={busy || placeQuery !== place.name}>{busy ? 'Refreshing live data…' : 'Refresh weather and NSW holidays'}</button><p className="status" role="status">{liveDataReady ? message : 'Refresh live data here first. The forecast is only calculated when you press “Create forecast”.'}</p></section>
-    <section className="card"><div className="card-title"><span>2</span><div><h2>Add sales and visitor counts</h2><p>Upload up to one year of daily data. Visitor counts are optional and should be aggregated totals.</p></div></div><div className="upload-row"><div><strong>Daily sales CSV</strong><p>Required: date, units_sold. Optional: store_visitors (daily store total).</p><input type="file" accept=".csv,text/csv" onChange={e => void upload(e.target.files?.[0])}/></div><a className="secondary download-link" href="/coles-cold-drinks-sales-template.csv" download>Download CSV template</a></div><p className="privacy">Use one store and one selected drink/product per CSV. Never include customer names or IDs. To add today's current visitor count, add today's date and total to the CSV and upload it again.</p><div className="stats"><div><strong>{sales.length ? nf.format(sales.length) : '—'}</strong><span>sales days loaded</span></div><div><strong>{visitorDays ? nf.format(visitorDays) : '—'}</strong><span>visitor-count days</span></div><div><strong>{latestVisitors ? nf.format(latestVisitors.visitors || 0) : '—'}</strong><span>latest visitors · {latestVisitors?.date || 'no count'}</span></div></div></section>
+    <section className="card"><div className="card-title"><span>2</span><div><h2>Add sales and people counts</h2><p>Upload up to four years of daily sales history. Counts are optional.</p></div></div><div className="upload-row"><div><strong>Daily sales CSV</strong><p>Required: date, units_sold. Optional: store_visitors and annual_area_population.</p><input type="file" accept=".csv,text/csv" onChange={e => void upload(e.target.files?.[0])}/></div><a className="secondary download-link" href="/coles-cold-drinks-sales-template.csv" download>Download CSV template</a></div><p className="privacy">Use one store and one selected drink/product per CSV. `store_visitors` is that store’s daily visitor total. `annual_area_population` is the selected suburb’s estimated population for that year; repeat that year’s figure on its daily rows. Leave it blank if unknown. Never include customer names or IDs.</p><div className="stats"><div><strong>{sales.length ? nf.format(sales.length) : '—'}</strong><span>sales days loaded</span></div><div><strong>{visitorDays ? nf.format(visitorDays) : '—'}</strong><span>days with store visitors</span></div><div><strong>{latestVisitors ? nf.format(latestVisitors.visitors || 0) : '—'}</strong><span>latest store visitors</span></div><div><strong>{latestPopulation ? nf.format(latestPopulation.population) : '—'}</strong><span>suburb population · {latestPopulation?.year || 'not provided'}</span></div></div></section>
     <section className="card"><div className="card-title"><span>3</span><div><h2>Enter today's stock</h2><p>The order amount subtracts stock already available and incoming.</p></div></div><div className="grid four"><label>Typical sales/day<input type="number" min="0" value={usual} onChange={e => setUsual(Number(e.target.value))}/></label><label>Drinks on hand<input type="number" min="0" value={stock} onChange={e => setStock(Number(e.target.value))}/></label><label>Incoming drinks<input type="number" min="0" value={incoming} onChange={e => setIncoming(Number(e.target.value))}/></label><label>Extra safety stock<input type="number" min="0" value={safety} onChange={e => setSafety(Number(e.target.value))}/></label></div><button className="primary" onClick={() => void forecast()} disabled={busy || !liveDataReady || placeQuery !== place.name}>{busy ? 'Creating forecast…' : 'Create forecast'}</button><p className="status" role="status">{placeQuery !== place.name ? 'Choose a matching suburb suggestion before creating the forecast.' : !liveDataReady ? 'Refresh weather and NSW holidays in step 1 first.' : message}</p></section>
-    {rows.length > 0 && <section className="card result"><div className="result-head"><div><p className="kicker">RECOMMENDED ORDER · {place.name}</p><h2>{nf.format(order)} drinks</h2><p>Expected sales: {nf.format(estimatedSales)} · {drinkType} · next {horizon} days</p></div><div className="result-actions"><button className="primary" onClick={downloadForecastPdf}>Download forecast PDF</button><button className="secondary" onClick={downloadForecast}>Download forecast CSV</button></div></div><p className="saved" role="status">{saved}</p><div className="table-wrap"><table><thead><tr><th>Date</th><th>Expected sales</th><th>Estimated visitors</th><th>Weather</th><th>Holiday</th></tr></thead><tbody>{rows.map(r => <tr key={r.date}><td>{prettyDate(r.date)}</td><td>{nf.format(r.sales)} drinks</td><td>{r.visitors === null ? 'History unavailable' : nf.format(r.visitors)}</td><td>{r.weather ? `${Math.round(r.weather.max)}°C high · ${Math.round(r.weather.rain)} mm rain` : 'Live forecast unavailable'}</td><td>{r.holiday || '—'}</td></tr>)}</tbody></table></div><p className="footnote">Visitor counts are estimated from recent matching weekdays in your CSV. They are not a live public foot-traffic feed. Forecasts are planning estimates, not purchase orders. Live weather is generally available for about 16 days; dates beyond that use sales and calendar patterns.</p></section>}
-    <aside className="note"><strong>Data sources and limits</strong><p>Live weather: Open-Meteo. NSW public holidays: Nager.Date. Coles does not provide public store-level sales or visitor counts; upload data you are authorised to use. Without sales history, the tool uses the typical-sales value plus simple weather and calendar adjustments. Forecast access is restricted to the approved admin email.</p></aside>
+    {rows.length > 0 && <section className="card result"><div className="result-head"><div><p className="kicker">RECOMMENDED ORDER · {place.name}</p><h2>{nf.format(order)} drinks</h2><p>Expected sales: {nf.format(estimatedSales)} · {drinkType} · next {horizon} days</p></div><div className="result-actions"><button className="primary" onClick={downloadForecastPdf}>Download forecast PDF</button><button className="secondary" onClick={downloadForecast}>Download forecast CSV</button></div></div><div className="table-wrap"><table><thead><tr><th>Date</th><th>Expected sales</th><th>Estimated visitors</th><th>Weather</th><th>Holiday</th></tr></thead><tbody>{rows.map(r => <tr key={r.date}><td>{prettyDate(r.date)}</td><td>{nf.format(r.sales)} drinks</td><td>{r.visitors === null ? 'History unavailable' : nf.format(r.visitors)}</td><td>{r.weather ? `${Math.round(r.weather.max)}°C high · ${Math.round(r.weather.rain)} mm rain` : 'Live forecast unavailable'}</td><td>{r.holiday || '—'}</td></tr>)}</tbody></table></div><p className="footnote">Visitor counts are estimated from recent matching weekdays in your CSV. They are not a live public foot-traffic feed. Area population is used only as a limited yearly adjustment when daily visitor history is unavailable. Forecasts are planning estimates, not purchase orders. Live weather is generally available for about 16 days; later dates use sales and calendar patterns.</p></section>}
+    <aside className="note"><strong>Data sources and limits</strong><p>Live weather: Open-Meteo. NSW public holidays: Nager.Date. Coles does not provide public store-level sales or visitor counts; upload data you are authorised to use. Without sales history, the tool uses the typical-sales value plus simple weather and calendar adjustments. Forecasting works without login or account setup.</p></aside>
     <footer>Independent Coles-focused planning prototype · no Coles affiliation</footer></main></>;
 }

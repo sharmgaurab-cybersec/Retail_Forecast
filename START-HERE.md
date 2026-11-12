@@ -1,28 +1,23 @@
 # Start here: Coles Cold Drinks Stock Planner
 
-This repository contains the source code for a Coles-focused cold-drinks forecasting web app.
+This is a public, no-login cold-drinks forecasting planner for Sydney Coles stores. It uses live Open-Meteo weather and NSW public-holiday dates. Sales history is optional; without a CSV, enter typical sales per day.
 
 ## Preview locally
 
 1. Install Node.js 22.13 or newer and pnpm 11.25.0.
-2. Extract/open this project folder in your editor.
-3. Run:
+2. In this project folder, run:
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-4. Visit `http://localhost:5173`.
+3. Visit `http://localhost:5173`.
 
-Sign in with the approved admin account to open the planner. Uploading a CSV is optional; to use your own history, download the CSV template from the page, fill in daily sales and optional store visitors, and upload it. The forecast can use up to one year of daily rows.
+## Forecast with a CSV
 
-## Connect Supabase
+Download the CSV template in the planner. `date` and `units_sold` are required. `store_visitors` and `annual_area_population` are optional. Use one store and one drink/product per file; up to four years of daily rows are accepted. The CSV stays in the user's browser.
 
-Admin sign-in and forecast saving require a Supabase project. Create the confirmed Auth user `reborngamming1@gmail.com`, set its password in Supabase Authentication → Users, run `supabase/migrations/20261106_create_forecast_runs.sql`, then configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in the production Cloudflare Worker settings and deploy. See `README.md` and `SUPABASE-ADMIN-LOGIN.md` for full steps. A Supabase secret/service-role key must never go in the browser or GitHub.
+## Deploy
 
-## Upload to GitHub
-
-Create a repository in your GitHub account and upload the extracted project files (or push this folder using Git). Keep the folder structure, `package.json`, `pnpm-lock.yaml`, Cloudflare config and source files. Do not upload `.env`, `.dev.vars`, credentials, local database state, `node_modules`, or private sales CSVs. GitHub Pages cannot run the Worker backend; use Cloudflare Workers or another compatible server host.
-
-Deployment and data-source limits are documented in `README.md`.
+Push the project files to GitHub, connect the repository in Cloudflare Workers Builds, and use the build and deploy commands in `BUILD-AND-DEPLOY.md`. No admin login, Supabase setup, D1 database, or secret variables are required.
