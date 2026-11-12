@@ -38,8 +38,11 @@ export default function LoginForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: ADMIN_EMAIL, password }),
       });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw Error(result.error || 'Sign-in failed.');
+      const result = await response.json() as { error?: string; debugStage?: string };
+      if (!response.ok) {
+        const detail = result.debugStage ? ` (diagnostic: ${result.debugStage})` : '';
+        throw Error((result.error || 'Sign-in failed.') + detail);
+      }
       window.location.assign('/');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not sign in. Try again.');

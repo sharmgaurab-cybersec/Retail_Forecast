@@ -35,7 +35,7 @@ The app runs at `http://localhost:5173`. Build using `pnpm build`.
 
 ## Cloudflare build settings
 
-Keep the project files at the repository root so Cloudflare can find `package.json` and `pnpm-lock.yaml`. In Cloudflare Workers Builds, use root directory `/`, build command `pnpm build`, and deploy command `pnpm exec wrangler deploy --config dist/server/wrangler.json`. The Vite build generates that Wrangler configuration. Do not deploy this project with the static asset uploader. If the repository keeps these files inside `Retail_Forecast-main/`, set the Cloudflare root directory to `/Retail_Forecast-main` instead.
+Keep the project files at the repository root so Cloudflare can find `package.json` and `pnpm-lock.yaml`. In Cloudflare Workers Builds, use root directory `/`, build command `pnpm build`, and deploy command `pnpm exec wrangler deploy --config dist/server/wrangler.json --keep-vars`. The Vite build generates that Wrangler configuration. `--keep-vars` prevents a deploy from removing runtime variables configured in the Cloudflare dashboard. Do not deploy this project with the static asset uploader. If the repository keeps these files inside `Retail_Forecast-main/`, set the Cloudflare root directory to `/Retail_Forecast-main` instead.
 
 ## Supabase setup
 

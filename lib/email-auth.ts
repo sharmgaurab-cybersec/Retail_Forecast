@@ -35,6 +35,6 @@ export async function allowAuth(key:string,limit:number,windowMs:number){
  if(!env.DB)return false;
  const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key)))).map(n=>n.toString(16).padStart(2,'0')).join('');
  const window=Math.floor(Date.now()/windowMs);
- const r=await env.DB.prepare('INSERT INTO auth_rate_limits (key,window,count) VALUES (?,?,1) ON CONFLICT(key) DO UPDATE SET window=excluded.window,count=CASE WHEN auth_rate_limits.window=excluded.window THEN auth_rate_limits.count+1 ELSE 1 END WHERE auth_rate_limits.window!=excluded.window OR auth_rate_limits.count < ?').bind(hash,window,limit).run();
+ const r=await env.DB.prepare('INSERT INTO auth_rate_limits (key,"window",count) VALUES (?,?,1) ON CONFLICT(key) DO UPDATE SET "window"=excluded."window",count=CASE WHEN auth_rate_limits."window"=excluded."window" THEN auth_rate_limits.count+1 ELSE 1 END WHERE auth_rate_limits."window"!=excluded."window" OR auth_rate_limits.count < ?').bind(hash,window,limit).run();
  return !!r.meta.changes;
 }

@@ -72,7 +72,7 @@ async function limit(env, key, maximum, minutes) {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key));
   const hash = [...new Uint8Array(bytes)].map(n => n.toString(16).padStart(2, '0')).join('');
   const window = Math.floor(Date.now() / (minutes * 60000));
-  const result = await database(env).prepare('INSERT INTO auth_rate_limits (key,window,count) VALUES (?,?,1) ON CONFLICT(key) DO UPDATE SET window=excluded.window,count=CASE WHEN auth_rate_limits.window=excluded.window THEN auth_rate_limits.count+1 ELSE 1 END WHERE auth_rate_limits.window!=excluded.window OR auth_rate_limits.count < ?').bind(hash, window, maximum).run();
+  const result = await database(env).prepare('INSERT INTO auth_rate_limits (key,"window",count) VALUES (?,?,1) ON CONFLICT(key) DO UPDATE SET "window"=excluded."window",count=CASE WHEN auth_rate_limits."window"=excluded."window" THEN auth_rate_limits.count+1 ELSE 1 END WHERE auth_rate_limits."window"!=excluded."window" OR auth_rate_limits.count < ?').bind(hash, window, maximum).run();
   if (!result.meta.changes) fail('Please wait before trying again.', 429);
 }
 function emailAddress(data) {
