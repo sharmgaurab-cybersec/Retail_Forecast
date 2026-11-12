@@ -1,3 +1,3 @@
 declare namespace Cloudflare {
-  interface Env {}
+  type Env = Record<string, never>;
 }

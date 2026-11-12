@@ -16,7 +16,7 @@ pnpm dev
 
 ## Forecast with a CSV
 
-Download the CSV template in the planner. `date` and `units_sold` are required. `store_visitors` and `annual_area_population` are optional. Use one store and one drink/product per file; up to four years of daily rows are accepted. The CSV stays in the user's browser.
+Download the CSV template in the planner. `date` and `units_sold` are required. Optional columns: `store_visitors`, `annual_area_population`, `promotion`, `price`, `stockout`, and `delivery_lead_days`. Use one store and one drink/product per file; up to four years of daily rows are accepted. Use Clear uploaded CSV to remove the current data before another forecast. The CSV stays in the user's browser.
 
 ## Deploy
 

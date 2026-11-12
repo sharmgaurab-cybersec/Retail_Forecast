@@ -19,9 +19,9 @@ This independent project is not affiliated with Coles. Coles does not provide pu
 
 The template columns are:
 
-`date, units_sold, store_visitors, annual_area_population`
+`date, units_sold, store_visitors, annual_area_population, promotion, price, stockout, delivery_lead_days`
 
-`date` and `units_sold` are required. `store_visitors` is the daily visitor total for the store. `annual_area_population` is the estimated population for the selected suburb in that year; repeat the annual value on that year's daily rows, or leave it blank if unknown. The planner uses daily visitors to estimate units per visitor. If daily visitor history is unavailable, it can use the latest two annual population values as a limited adjustment to the sales baseline.
+`date` and `units_sold` are required. `store_visitors` is the daily visitor total. `annual_area_population` is the selected suburb population for that year. `promotion` and `stockout` accept yes/no; `price` is the unit price in AUD; `delivery_lead_days` is the usual supplier lead time. Stockout days and historical promotion days are left out of normal-demand history. A planned-promotion checkbox applies an uplift only when enough past promotion rows exist. A planned price is applied only when there are at least five price records across three or more different prices to estimate price response. Lead time is used to flag whether current and incoming stock cover demand until the next delivery. Clear uploaded CSV removes its data from the current browser session.
 
 The file should represent one store and one selected drink/product. Dates can use `YYYY-MM-DD` or slash dates. Slash dates are read as Australian `DD/MM/YYYY` unless that would be an invalid date, in which case the parser uses `MM/DD/YYYY` (so `11/15/2025` is November 15). Use ISO dates where possible to avoid ambiguity. Up to 1,461 daily rows are read. When no CSV is uploaded, the planner uses the editable typical sales per day and live weather/calendar adjustments.
 

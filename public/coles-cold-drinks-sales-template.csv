@@ -1,1 +1,1 @@
-date,units_sold,store_visitors,annual_area_population
+date,units_sold,store_visitors,annual_area_population,promotion,price,stockout,delivery_lead_days
