@@ -23,7 +23,7 @@ const localBindingConfig = {
         {
           binding: d1,
           database_name: "coles-stock-planner-db",
-          database_id: COLES_D1_DATABASE_ID,
+          database_id: 7b265d90-e6d8-4dd6-b31b-e8ed2960bc86,
         },
       ]
     : [],
